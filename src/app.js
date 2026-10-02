@@ -1,19 +1,25 @@
 const express = require("express");
+const config = require("./config/env");
+const {
+  securityMiddleware,
+  webhookRateLimiter,
+} = require("./middlewares/security.middleware");
+const requestLogger = require("./middlewares/requestLogger.middleware");
+const {
+  errorConverter,
+  errorHandler,
+} = require("./middlewares/error.middleware");
 const compression = require("compression");
 const hpp = require("hpp");
 
-const config = require("./config/env");
-const { securityMiddleware, rateLimiter } = require("./middlewares/security.middleware");
-const requestLogger = require("./middlewares/requestLogger.middleware");
-const { errorConverter, errorHandler } = require("./middlewares/error.middleware");
 const ApiError = require("./utils/apiError");
 
-const healthRoutes = require("./modules/health/routes");
+const teachableWebhookRoutes = require("./modules/teachable-webhook/routes");
 
 const app = express();
 
-// Trust exactly one hop (the platform's edge proxy) for correct client IPs.
-// Using `true` here would trust every hop in X-Forwarded-For, letting a client
+// Trust exactly one hop (Vercel's edge proxy) for correct client IPs. Using
+// `true` here would trust every hop in X-Forwarded-For, letting a client
 // spoof its own IP and bypass IP-based rate limiting (see
 // https://express-rate-limit.github.io/ERR_ERL_PERMISSIVE_TRUST_PROXY/).
 app.set("trust proxy", 1);
@@ -22,26 +28,31 @@ app.set("trust proxy", 1);
 app.use(securityMiddleware);
 app.use(hpp());
 
-// Standard Middlewares. Capping body size bounds memory/CPU spent on an
-// internet-facing endpoint before auth or schema validation ever runs.
+// Standard Middlewares
+// A real Enrollment.completed payload is a few KB at most; capping request
+// size bounds memory/CPU spent on an internet-facing endpoint before auth
+// or schema validation ever runs.
 app.use(express.json({ limit: "256kb" }));
 app.use(express.urlencoded({ extended: true, limit: "256kb" }));
 app.use(compression());
 app.use(requestLogger);
 
-// Health Checks. Mounted before the rate limiter so an uptime monitor polling
-// on a short interval can never be throttled out of its own probe.
-app.use("/health", healthRoutes);
+// Health Check
+app.get("/health", (req, res) => {
+  res.status(200).send({ status: "ok", timestamp: new Date().toISOString() });
+});
 
-// Application Routes
+// Teachable -> HubSpot course-completion webhook. Auth is a secret path
+// token (see teachableWebhookAuth.middleware.js), not a shared /api prefix
+// guard, since this is the only route this backend exposes.
 if (config.nodeEnv === "production") {
-  app.use("/api", rateLimiter);
+  app.use("/webhooks/teachable", webhookRateLimiter);
 }
-// app.use("/api/<resource>", <resource>Routes);
+app.use("/webhooks/teachable", teachableWebhookRoutes);
 
 // 404 Handler
 app.use((req, res, next) => {
-  next(new ApiError(404, "Not found", true, "", { errorCode: "NOT_FOUND" }));
+  next(new ApiError(404, "Not found"));
 });
 
 // Error Handling

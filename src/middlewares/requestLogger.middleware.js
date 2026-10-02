@@ -1,14 +1,14 @@
-const crypto = require("crypto");
 const logger = require("../utils/logger");
+const crypto = require("crypto");
 
-// Any path segment carrying a secret (e.g. a webhook token) must be masked
-// before it reaches the logs. Add a pattern here as such routes are added.
-const REDACTIONS = [];
-
+// The Teachable webhook path embeds a secret token (see
+// teachableWebhookAuth.middleware.js) since Teachable can't sign its
+// requests. It must never reach the logs, redact it before logging any URL.
 const redactUrl = (url) =>
-  REDACTIONS.reduce((acc, { pattern, replacement }) => acc.replace(pattern, replacement), url);
+  url.replace(/(\/webhooks\/teachable\/)([^/?]+)/, "$1[REDACTED]");
 
 const requestLogger = (req, res, next) => {
+  // Generate a UUID-like ID using crypto module as fallback
   req.id = crypto.randomUUID();
   res.setHeader("X-Request-Id", req.id);
 

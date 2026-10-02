@@ -28,8 +28,6 @@ class Logger {
   _format(level, message, metadata, service, action, requestId) {
     const timestamp = new Date().toISOString();
 
-    // Structured JSON in production so a log aggregator can index it; a
-    // human-readable coloured line everywhere else.
     if (this.isProd) {
       return JSON.stringify({
         level,
@@ -48,7 +46,7 @@ class Logger {
     const serviceStr = service ? ` [${service}]` : " [N/A]";
     const actionStr = action ? ` [${action}]` : " [N/A]";
 
-    let logMsg = `${color}[${level}]${reset} [${timestamp}]${serviceStr}${actionStr}${reqIdStr} -> ${message}`;
+    let logMsg = `${color}[${level}]${reset} [${timestamp}]${serviceStr}${actionStr}${reqIdStr} → ${message}`;
     if (metadata && Object.keys(metadata).length > 0) {
       logMsg += ` ${JSON.stringify(metadata)}`;
     }
@@ -57,8 +55,7 @@ class Logger {
 
   info(message, context = {}) {
     if (this._shouldLog("INFO")) {
-      const { service, action, requestId, ...metadata } =
-        typeof context === "string" ? { message: context } : context;
+      const { service, action, requestId, ...metadata } = typeof context === 'string' ? { message: context } : context;
       console.log(this._format("INFO", message, metadata, service, action, requestId));
     }
   }

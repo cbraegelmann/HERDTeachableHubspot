@@ -24,7 +24,19 @@ const rateLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+// Sized for individual Teachable course-completion events, not bulk sync.
+// Separate from the generic limiter above so webhook traffic can't be starved
+// by, or accidentally starve, any other route sharing the same budget.
+const webhookRateLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 120,
+  message: "Too many webhook requests, please try again shortly",
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 module.exports = {
     securityMiddleware,
     rateLimiter,
+    webhookRateLimiter
 };

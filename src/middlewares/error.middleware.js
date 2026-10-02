@@ -2,15 +2,18 @@ const logger = require('../utils/logger');
 const ApiError = require('../utils/apiError');
 const { buildErrorResponse } = require('../utils/apiResponse');
 
-// Normalises anything thrown downstream into an ApiError so errorHandler
-// below only ever has one shape to deal with.
 const errorConverter = (err, req, res, next) => {
   let error = err;
 
   if (!(error instanceof ApiError)) {
     const statusCode = error.statusCode || (error instanceof Error ? 500 : 400);
     const message = error.message || "Internal Server Error";
-    error = new ApiError(statusCode, message, false, err.stack);
+    error = new ApiError(
+      statusCode,
+      message,
+      false,
+      err.stack
+    );
 
     if (err.rawError) {
       error.rawError = err.rawError;
@@ -35,7 +38,6 @@ const errorHandler = (err, req, res, next) => {
     details = err.payload;
   }
 
-  // Never leak internals of an unexpected failure to a production client.
   if (process.env.NODE_ENV === "production" && !err.isOperational) {
     message = "Internal Server Error";
   }

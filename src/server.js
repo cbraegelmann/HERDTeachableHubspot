@@ -2,7 +2,6 @@ const app = require("./app");
 const config = require("./config/env");
 const logger = require("./utils/logger");
 
-// Guarded so the test suite can require the app without binding a port.
 if (require.main === module) {
   let server;
 
